@@ -1,0 +1,54 @@
+[project]
+name = "ticket-reservation-lab"
+version = "0.1.0"
+description = "A concurrency-focused ticket reservation API study project."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.14.0",
+    "asyncpg>=0.30.0",
+    "email-validator>=2.2.0",
+    "fastapi>=0.115.0",
+    "pydantic-settings>=2.7.0",
+    "pwdlib[argon2]>=0.3.0",
+    "redis>=5.2.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "uvicorn[standard]>=0.34.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0",
+    "locust>=2.32.0",
+    "mypy>=1.14.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.9.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["ASYNC", "B", "E", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+files = ["src", "tests"]
+python_version = "3.12"
+strict = true

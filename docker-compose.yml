@@ -1,0 +1,122 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ticket_reservation}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticket_reservation}
+      POSTGRES_USER: ${POSTGRES_USER:-ticket_reservation}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-ticket_reservation} -d ${POSTGRES_DB:-ticket_reservation}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+
+  migrate:
+    build:
+      context: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ticket_reservation}:${POSTGRES_PASSWORD:-ticket_reservation}@postgres:5432/${POSTGRES_DB:-ticket_reservation}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  api:
+    build:
+      context: .
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+        "--reload-dir",
+        "/app/src",
+      ]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ticket_reservation}:${POSTGRES_PASSWORD:-ticket_reservation}@postgres:5432/${POSTGRES_DB:-ticket_reservation}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - .:/app
+
+  worker:
+    build:
+      context: .
+    command: ["python", "-m", "app.workers.expiration"]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ticket_reservation}:${POSTGRES_PASSWORD:-ticket_reservation}@postgres:5432/${POSTGRES_DB:-ticket_reservation}
+      EXPIRATION_WORKER_BATCH_SIZE: ${EXPIRATION_WORKER_BATCH_SIZE:-100}
+      EXPIRATION_WORKER_INTERVAL_SECONDS: ${EXPIRATION_WORKER_INTERVAL_SECONDS:-5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  locust:
+    build:
+      context: .
+    profiles: ["stress"]
+    entrypoint: ["locust"]
+    command:
+      [
+        "-f",
+        "/app/stress/locustfile.py",
+        "--host",
+        "http://api:8000",
+      ]
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
+  redis_data:
