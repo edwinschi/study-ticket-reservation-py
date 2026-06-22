@@ -35,6 +35,8 @@ def utc_now() -> datetime:
 
 
 class StressAdminService:
+    """Local-only utilities for seeding, resetting, and auditing stress-test data."""
+
     def __init__(
         self,
         consistency_repository: StressConsistencyRepository | None = None,
@@ -42,6 +44,7 @@ class StressAdminService:
         self.consistency_repository = consistency_repository or StressConsistencyRepository()
 
     async def seed(self, session: AsyncSession) -> StressSeedResponse:
+        """Create a deterministic-enough fixture for local Locust and manual stress runs."""
         now = datetime.now(UTC)
         event_id = uuid4()
         event = Event(
@@ -76,6 +79,12 @@ class StressAdminService:
         )
 
     async def reset(self, session: AsyncSession) -> StressResetResponse:
+        """
+        Remove only stress-seeded events and their reservations.
+
+        This avoids deleting arbitrary local study data while still making repeated stress runs
+        easy to reset.
+        """
         stress_event_ids = select(Event.id).where(Event.name.startswith(STRESS_EVENT_PREFIX))
         stress_reservation_ids = select(Reservation.id).where(
             Reservation.event_id.in_(stress_event_ids)
@@ -109,9 +118,17 @@ class StressAdminService:
         now: datetime | None = None,
         event_ids: list[UUID] | None = None,
     ) -> StressConsistencyResponse:
+        """
+        Audit database invariants after concurrency or stress tests.
+
+        These checks are intentionally independent from the reservation services. If application
+        code misses a race condition, the audit queries should still reveal impossible database
+        states such as oversold ticket types or duplicate active seats.
+        """
         checked_at = now or utc_now()
         repository = self.consistency_repository
 
+        # Quantity checks verify both lower bounds and the aggregate no-oversell invariant.
         negative_quantities = await repository.list_negative_ticket_quantities(
             session,
             limit=CONSISTENCY_DETAIL_LIMIT,
@@ -122,11 +139,14 @@ class StressAdminService:
             limit=CONSISTENCY_DETAIL_LIMIT,
             event_ids=event_ids,
         )
+        # Seat checks mirror the partial unique index and are useful after stress runs because
+        # they report the violating seat IDs instead of only relying on database errors.
         duplicate_active_seats = await repository.list_duplicate_active_seats(
             session,
             limit=CONSISTENCY_DETAIL_LIMIT,
             event_ids=event_ids,
         )
+        # Orphan checks protect the reservation graph from broken parent/child references.
         orphan_items = await repository.list_orphan_reservation_items(
             session,
             limit=CONSISTENCY_DETAIL_LIMIT,
@@ -135,6 +155,7 @@ class StressAdminService:
             session,
             limit=CONSISTENCY_DETAIL_LIMIT,
         )
+        # A short tolerance prevents false positives while the worker is between polling cycles.
         stale_reservations = await repository.list_stale_active_reservations(
             session,
             expired_before=checked_at - STALE_RESERVATION_TOLERANCE,
@@ -179,6 +200,8 @@ class StressAdminService:
                 checked_at=checked_at,
             ),
         ]
+        # The audit is read-only. Rolling back closes the implicit transaction opened by the
+        # SELECT statements and returns the connection cleanly to the pool.
         await session.rollback()
         return StressConsistencyResponse(
             ok=all(

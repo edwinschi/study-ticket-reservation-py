@@ -141,6 +141,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        # Quantity inventory invariants live in the database. Application code should never be
+        # the only line of defense against negative counters or overselling.
         sa.CheckConstraint(
             "total_quantity >= 0",
             name=op.f("ck_ticket_types_total_quantity_non_negative"),
@@ -193,6 +195,8 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_seats"),
+        # The physical seat identity must be unique inside an event before reservations can
+        # safely reason about seat_id-level locks and active holds.
         sa.UniqueConstraint(
             "event_id",
             "section",
@@ -244,6 +248,8 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_reservations"),
+        # This unique constraint is the hard idempotency guarantee. It lets clients retry the
+        # same request without creating duplicate reservations or double-incrementing stock.
         sa.UniqueConstraint(
             "visitor_session_id",
             "idempotency_key",
@@ -281,6 +287,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        # Reservation items represent quantity holds. Zero or negative quantities would make
+        # lifecycle transitions ambiguous, so the database rejects them.
         sa.CheckConstraint(
             "quantity > 0",
             name=op.f("ck_reservation_items_quantity_positive"),
@@ -343,6 +351,9 @@ def upgrade() -> None:
         "reservation_seats",
         ["seat_id", "status"],
     )
+    # This is the final database-level guard for seat reservation correctness.
+    # Only "reserved" and "confirmed" rows are active. Cancelled or expired rows remain as
+    # history but no longer block a future reservation for the same seat.
     op.create_index(
         "uq_active_reservation_seat",
         "reservation_seats",

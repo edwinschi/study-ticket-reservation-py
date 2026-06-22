@@ -1,3 +1,9 @@
+"""Concurrency test for multiple expiration workers.
+
+The worker code uses FOR UPDATE SKIP LOCKED. This test runs two in-process batches at the same
+time and verifies that each expired reservation is processed once logically.
+"""
+
 import asyncio
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
@@ -48,6 +54,8 @@ async def test_two_workers_expire_each_reservation_once_logically(
     worker_now = max(expires_at_values) + timedelta(seconds=1)
 
     async def run_worker() -> int:
+        # Each worker gets a separate AsyncSession, matching how real worker processes would
+        # use independent database transactions.
         async with async_session_factory() as session:
             return await ReservationLifecycleService(ReservationRepository()).expire_batch(
                 session,
@@ -56,6 +64,8 @@ async def test_two_workers_expire_each_reservation_once_logically(
                 reservation_ids=reservation_ids,
             )
 
+    # If SKIP LOCKED were missing, the workers could block each other or attempt to process the
+    # same reservations concurrently. The expected total is exactly the number created.
     processed_by_workers = await asyncio.gather(run_worker(), run_worker())
 
     async with async_session_factory() as session:

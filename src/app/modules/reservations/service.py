@@ -52,6 +52,8 @@ class ReservationInventoryConflictError(Exception):
 
 
 class QuantityReservationService:
+    """Coordinate quantity reservations without trusting application-side stock reads."""
+
     def __init__(
         self,
         repository: ReservationRepository,
@@ -70,8 +72,18 @@ class QuantityReservationService:
         quantity: int,
         idempotency_key: str,
     ) -> QuantityReservationResponse:
+        """
+        Reserve tickets by quantity using a short database transaction.
+
+        The stock validation is delegated to PostgreSQL through an atomic UPDATE. This avoids
+        the classic race where two concurrent requests both read the same available quantity
+        before either one writes the new reserved quantity.
+        """
         visitor_session_id = visitor_session.id
         user_id = visitor_session.user_id
+
+        # Idempotency is checked before touching inventory so client retries can safely replay
+        # an already-created reservation without incrementing reserved_quantity again.
         existing = await self.repository.get_quantity_by_idempotency_key(
             session,
             visitor_session_id=visitor_session_id,
@@ -80,6 +92,9 @@ class QuantityReservationService:
         if existing is not None:
             return self._to_response(existing)
 
+        # This call performs the availability check and the increment in one SQL statement.
+        # A false result means PostgreSQL could not update any row, which maps to a business
+        # conflict instead of an application error.
         stock_reserved = await self.repository.reserve_ticket_quantity(
             session,
             event_id=event_id,
@@ -113,11 +128,15 @@ class QuantityReservationService:
         )
 
         try:
+            # The reservation header is flushed before the item so database constraints can
+            # validate the parent row inside the same transaction.
             self.repository.add_reservation(session, reservation)
             await session.flush()
             self.repository.add_reservation_item(session, reservation_item)
             await session.commit()
         except IntegrityError:
+            # A concurrent request with the same idempotency key may win the unique constraint.
+            # Roll back this transaction, then replay the existing reservation if it exists.
             return await self._resolve_conflict_or_replay(
                 session,
                 visitor_session_id=visitor_session_id,
@@ -144,6 +163,7 @@ class QuantityReservationService:
         visitor_session_id: UUID,
         idempotency_key: str,
     ) -> QuantityReservationResponse:
+        """Replay an idempotent reservation or raise a stock conflict after rollback."""
         await session.rollback()
         existing = await self.repository.get_quantity_by_idempotency_key(
             session,
@@ -175,6 +195,8 @@ class QuantityReservationService:
 
 
 class SeatReservationService:
+    """Coordinate seat reservations with deterministic locks and database uniqueness."""
+
     def __init__(
         self,
         repository: ReservationRepository,
@@ -192,8 +214,18 @@ class SeatReservationService:
         seat_ids: list[UUID],
         idempotency_key: str,
     ) -> SeatReservationResponse:
+        """
+        Reserve explicit seats in a short transaction.
+
+        Seats are locked in sorted UUID order before inserting reservation rows. The ordered
+        lock acquisition keeps competing requests from taking locks in opposite orders, which
+        is one of the easiest ways to create deadlocks.
+        """
         visitor_session_id = visitor_session.id
         user_id = visitor_session.user_id
+
+        # Replays must return the original reservation instead of trying to insert another
+        # active seat row and fighting the partial unique index.
         existing = await self.repository.get_seats_by_idempotency_key(
             session,
             visitor_session_id=visitor_session_id,
@@ -202,6 +234,8 @@ class SeatReservationService:
         if existing is not None:
             return self._to_response(existing)
 
+        # Sorting here is part of the concurrency contract. The repository also orders the
+        # SELECT FOR UPDATE result, and the equality check proves every requested seat exists.
         ordered_seat_ids = sorted(seat_ids)
         locked_seat_ids = await self.repository.lock_event_seats(
             session,
@@ -213,6 +247,9 @@ class SeatReservationService:
             raise SeatsNotFoundError
 
         now = datetime.now(UTC)
+        # Before creating a new active hold, stale holds for the same locked seats are expired
+        # in the same transaction. That keeps the partial unique index from rejecting seats that
+        # are only blocked by already-expired reservations.
         await self.repository.expire_reservations_for_seats(
             session,
             seat_ids=ordered_seat_ids,
@@ -242,6 +279,8 @@ class SeatReservationService:
         ]
 
         try:
+            # The partial unique index on reservation_seats(seat_id) remains the final safety
+            # net if two transactions still race to create an active hold for the same seat.
             self.repository.add_reservation(session, reservation)
             await session.flush()
             self.repository.add_reservation_seats(session, reservation_seats)
@@ -268,6 +307,7 @@ class SeatReservationService:
         visitor_session_id: UUID,
         idempotency_key: str,
     ) -> SeatReservationResponse:
+        """Replay an idempotent seat reservation or raise an active-seat conflict."""
         await session.rollback()
         existing = await self.repository.get_seats_by_idempotency_key(
             session,
@@ -292,6 +332,8 @@ class SeatReservationService:
 
 
 class ReservationLifecycleService:
+    """Handle reservation reads and state transitions under row-level locks."""
+
     def __init__(self, repository: ReservationRepository) -> None:
         self.repository = repository
 
@@ -302,6 +344,7 @@ class ReservationLifecycleService:
         reservation_id: UUID,
         visitor_session: VisitorSession,
     ) -> ReservationDetailResponse:
+        """Return a reservation only when it belongs to the current visitor or user."""
         reservation = await self.repository.get_owned_reservation(
             session,
             reservation_id=reservation_id,
@@ -323,12 +366,19 @@ class ReservationLifecycleService:
         reservation_id: UUID,
         visitor_session: VisitorSession,
     ) -> ReservationDetailResponse:
+        """
+        Cancel a reservation idempotently and release its inventory.
+
+        The parent reservation is locked before any child rows or ticket quantities are changed.
+        That makes concurrent cancel/confirm/expire attempts serialize around the same row.
+        """
         reservation = await self._lock_owned(
             session,
             reservation_id=reservation_id,
             visitor_session=visitor_session,
         )
 
+        # Returning the current cancelled state makes repeated cancel calls safe for clients.
         if reservation.status is ReservationStatus.CANCELLED:
             response = await self._to_detail_response(session, reservation)
             await session.rollback()
@@ -340,6 +390,8 @@ class ReservationLifecycleService:
             await session.rollback()
             raise ReservationTransitionConflictError
         if reservation.expires_at < datetime.now(UTC):
+            # A stale reservation is expired before responding. That keeps inventory state
+            # consistent even if the background worker has not processed this row yet.
             try:
                 await self._transition_reserved(
                     session,
@@ -373,12 +425,21 @@ class ReservationLifecycleService:
         reservation_id: UUID,
         visitor_session: VisitorSession,
     ) -> ReservationDetailResponse:
+        """
+        Confirm a reservation idempotently and move inventory to the sold/confirmed state.
+
+        Confirmation is the point where quantity inventory moves from reserved to sold. It must
+        be protected by the same parent-row lock so repeated concurrent confirms do not sell the
+        same reservation more than once.
+        """
         reservation = await self._lock_owned(
             session,
             reservation_id=reservation_id,
             visitor_session=visitor_session,
         )
 
+        # Repeated confirm calls return the existing confirmed reservation instead of trying to
+        # increment sold_quantity again.
         if reservation.status is ReservationStatus.CONFIRMED:
             response = await self._to_detail_response(session, reservation)
             await session.rollback()
@@ -390,6 +451,8 @@ class ReservationLifecycleService:
             await session.rollback()
             raise ReservationTransitionConflictError
         if reservation.expires_at < datetime.now(UTC):
+            # Expired reservations cannot be confirmed. Transitioning them here avoids leaving
+            # stale inventory reserved while the client receives a conflict.
             try:
                 await self._transition_reserved(
                     session,
@@ -424,6 +487,12 @@ class ReservationLifecycleService:
         now: datetime | None = None,
         reservation_ids: list[UUID] | None = None,
     ) -> int:
+        """
+        Expire one batch of stale reservations.
+
+        The repository locks rows with FOR UPDATE SKIP LOCKED, allowing multiple worker
+        processes to run at the same time without processing the same reservation concurrently.
+        """
         effective_now = now or datetime.now(UTC)
         reservations = await self.repository.lock_expired_reservations(
             session,
@@ -439,6 +508,8 @@ class ReservationLifecycleService:
         for reservation in reservations:
             reservation_id = reservation.id
             try:
+                # Each reservation uses a savepoint. One historically inconsistent row should
+                # not poison the whole batch and prevent other valid expirations from completing.
                 async with session.begin_nested():
                     await self._transition_reserved(
                         session,
@@ -462,6 +533,7 @@ class ReservationLifecycleService:
         reservation_id: UUID,
         visitor_session: VisitorSession,
     ) -> Reservation:
+        """Lock the owned reservation row so lifecycle transitions serialize safely."""
         visitor_session_id = visitor_session.id
         user_id = visitor_session.user_id
         reservation = await self.repository.get_owned_reservation(
@@ -483,6 +555,7 @@ class ReservationLifecycleService:
         reservation: Reservation,
         target_status: ReservationStatus,
     ) -> None:
+        """Move a reserved parent and its children to one terminal/active target state."""
         if reservation.status is not ReservationStatus.RESERVED:
             return
 
@@ -508,6 +581,12 @@ class ReservationLifecycleService:
         reservation_id: UUID,
         target_status: ReservationStatus,
     ) -> None:
+        """
+        Apply a quantity reservation transition with guarded inventory updates.
+
+        The repository methods include WHERE predicates that prevent reserved_quantity from
+        becoming negative and prevent sold/reserved values from violating table constraints.
+        """
         items = await self.repository.list_reservation_items(session, reservation_id)
         if not items:
             raise ReservationInventoryConflictError
@@ -540,6 +619,12 @@ class ReservationLifecycleService:
         reservation_id: UUID,
         target_status: ReservationStatus,
     ) -> None:
+        """
+        Apply a seat reservation transition.
+
+        The partial unique index treats only reserved and confirmed rows as active. Changing a
+        seat row to cancelled or expired releases that seat for a future reservation.
+        """
         reservation_seats = await self.repository.list_reservation_seats(
             session,
             reservation_id,

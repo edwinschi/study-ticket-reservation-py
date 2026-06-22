@@ -1,3 +1,9 @@
+"""Concurrency tests for quantity reservations.
+
+These tests intentionally create more concurrent requests than available inventory. They prove
+that the atomic PostgreSQL UPDATE admits only real stock winners and returns 409 for the rest.
+"""
+
 import asyncio
 from uuid import UUID, uuid4
 
@@ -18,6 +24,8 @@ async def test_500_requests_reserve_exactly_available_quantity(
 ) -> None:
     seed = await race_seed_factory.quantity(total_quantity=50)
 
+    # All requests target the same ticket_type row. If the service used a read-then-write stock
+    # check, more than 50 requests could observe availability before any one commits.
     responses = await asyncio.gather(
         *(
             client.post(
@@ -38,6 +46,8 @@ async def test_500_requests_reserve_exactly_available_quantity(
     assert status_codes.count(409) == 450
     assert set(status_codes) == {201, 409}
 
+    # The database state is the real assertion. HTTP status counts are not enough if inventory
+    # counters drift under concurrency.
     async with async_session_factory() as session:
         ticket_type = await session.get(TicketType, UUID(seed.ticket_type_id))
 
@@ -55,6 +65,8 @@ async def test_100_idempotent_requests_create_one_real_reservation(
     assert_event_consistency: ConsistencyAsserter,
 ) -> None:
     seed = await race_seed_factory.quantity(total_quantity=10)
+    # Every request uses the same idempotency key. The correct result is one real reservation
+    # and many replayed 201 responses, not 100 stock increments.
     payload = reservation_payload(
         event_id=seed.event_id,
         ticket_type_id=seed.ticket_type_id,

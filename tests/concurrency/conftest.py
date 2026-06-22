@@ -37,6 +37,8 @@ class SeatRaceSeed:
 
 @dataclass(slots=True)
 class RaceSeedFactory:
+    """Create per-test inventory and remember event IDs for cleanup and scoped audits."""
+
     client: AsyncClient
     event_ids: list[UUID] = field(default_factory=list)
 
@@ -63,6 +65,8 @@ class RaceSeedFactory:
         if not self.event_ids:
             return
 
+        # Cleanup is explicit because concurrency tests create many rows. Deleting only the
+        # events created by this fixture prevents unrelated local data from affecting the suite.
         reservation_ids = select(Reservation.id).where(Reservation.event_id.in_(self.event_ids))
         async with async_session_factory() as session:
             await session.execute(
@@ -85,6 +89,8 @@ ConsistencyAsserter = Callable[[list[str], datetime | None], Awaitable[None]]
 async def race_seed_factory(
     client: AsyncClient,
 ) -> AsyncIterator[RaceSeedFactory]:
+    # Reservation endpoints require a visitor session cookie. The shared AsyncClient keeps that
+    # cookie across the concurrent requests created by each test.
     await create_anonymous_session(client)
     factory = RaceSeedFactory(client)
     try:
@@ -99,6 +105,8 @@ def assert_event_consistency() -> ConsistencyAsserter:
         event_ids: list[str],
         now: datetime | None = None,
     ) -> None:
+        # The production endpoint audits the whole database. Tests use the same service scoped to
+        # the event IDs they created so old local rows cannot hide or create false failures.
         async with async_session_factory() as session:
             result = await StressAdminService().assert_consistency(
                 session,

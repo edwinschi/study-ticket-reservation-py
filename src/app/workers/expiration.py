@@ -13,6 +13,13 @@ _ = domain_models
 
 
 async def run_expiration_worker() -> None:
+    """
+    Run the local reservation expiration loop.
+
+    The worker intentionally creates a fresh AsyncSession for each batch. That keeps
+    transactions short and prevents one failed batch from leaving long-lived transaction state
+    around the next iteration.
+    """
     settings = get_settings()
     configure_logging(settings.log_level)
     service = ReservationLifecycleService(ReservationRepository())
@@ -21,6 +28,8 @@ async def run_expiration_worker() -> None:
         while True:
             await asyncio.sleep(settings.expiration_worker_interval_seconds)
             try:
+                # Each batch uses its own session/transaction boundary. The service locks rows
+                # with FOR UPDATE SKIP LOCKED, so multiple worker processes can run safely.
                 async with async_session_factory() as session:
                     processed = await service.expire_batch(
                         session,
@@ -29,6 +38,8 @@ async def run_expiration_worker() -> None:
                 if processed:
                     logger.info("Expired %s reservations", processed)
             except Exception:
+                # A worker failure should be visible in logs but should not stop future
+                # expiration attempts in the local lab environment.
                 logger.exception("Reservation expiration batch failed")
     finally:
         await close_database()

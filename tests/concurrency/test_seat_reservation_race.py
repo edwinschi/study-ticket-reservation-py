@@ -1,3 +1,9 @@
+"""Concurrency tests for seat reservations.
+
+The important invariant is not only the number of successful HTTP responses. After the race,
+each physical seat must have at most one active reservation row.
+"""
+
 import asyncio
 from uuid import UUID, uuid4
 
@@ -23,6 +29,8 @@ async def test_300_requests_never_duplicate_ten_active_seats(
 ) -> None:
     seed = await race_seed_factory.seats(seat_count=10)
 
+    # Requests cycle through only ten seats, creating predictable contention. The partial unique
+    # index must ensure that at most one active row exists per seat.
     responses = await asyncio.gather(
         *(
             client.post(
@@ -42,6 +50,8 @@ async def test_300_requests_never_duplicate_ten_active_seats(
     assert status_codes.count(409) == 290
     assert set(status_codes) == {201, 409}
 
+    # This aggregate query checks the same invariant as the production consistency endpoint,
+    # but scoped to the seats created by this test.
     async with async_session_factory() as session:
         active_rows = list(
             await session.execute(
@@ -71,6 +81,8 @@ async def test_200_requests_for_same_seat_have_one_winner(
     seed = await race_seed_factory.seats(seat_count=1)
     seat_id = seed.seat_ids[0]
 
+    # This is the highest-contention seat case: 200 independent idempotency keys all race for
+    # the same seat, so there should be exactly one winner.
     responses = await asyncio.gather(
         *(
             client.post(

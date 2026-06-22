@@ -57,6 +57,12 @@ async def reserve_quantity(
     db_session: DatabaseSession,
     visitor_session: CurrentVisitorSession,
 ) -> QuantityReservationResponse:
+    """
+    Create a quantity reservation for the current visitor session.
+
+    The endpoint remains thin on purpose: HTTP validation and error mapping live here, while the
+    service owns the transaction and the atomic stock update.
+    """
     try:
         return await get_quantity_reservation_service().reserve(
             db_session,
@@ -67,6 +73,8 @@ async def reserve_quantity(
             idempotency_key=payload.idempotency_key,
         )
     except QuantityReservationConflictError as exc:
+        # Exhausted stock is a normal business conflict under load, not an unexpected server
+        # failure. The standardized exception handler will include the request id.
         raise ConflictError(
             "Not enough stock available",
             code="INSUFFICIENT_STOCK",
@@ -83,6 +91,12 @@ async def reserve_seats(
     db_session: DatabaseSession,
     visitor_session: CurrentVisitorSession,
 ) -> SeatReservationResponse:
+    """
+    Create a seat reservation for the current visitor session.
+
+    The service validates seat ownership, locks seats in deterministic order, and relies on the
+    partial unique index to reject duplicate active occupancy.
+    """
     try:
         return await get_seat_reservation_service().reserve(
             db_session,
@@ -97,6 +111,8 @@ async def reserve_seats(
             code="SEATS_NOT_FOUND",
         ) from exc
     except SeatReservationConflictError as exc:
+        # Another request already holds or confirmed at least one seat. Returning 409 keeps
+        # expected contention visible to clients and stress tests without treating it as a 500.
         raise ConflictError(
             "One or more seats are already reserved or confirmed",
             code="SEAT_UNAVAILABLE",
@@ -131,6 +147,7 @@ async def cancel_reservation(
     db_session: DatabaseSession,
     visitor_session: CurrentVisitorSession,
 ) -> ReservationDetailResponse:
+    """Cancel an owned reservation, releasing inventory when the transition is valid."""
     try:
         return await get_reservation_lifecycle_service().cancel(
             db_session,
@@ -161,6 +178,7 @@ async def confirm_reservation(
     db_session: DatabaseSession,
     visitor_session: CurrentVisitorSession,
 ) -> ReservationDetailResponse:
+    """Confirm an owned reservation, simulating a successful purchase without payment."""
     try:
         return await get_reservation_lifecycle_service().confirm(
             db_session,

@@ -47,6 +47,8 @@ class StaleActiveReservationViolation:
 
 
 class StressConsistencyRepository:
+    """Read-only queries that turn database invariants into audit results."""
+
     async def list_negative_ticket_quantities(
         self,
         session: AsyncSession,
@@ -54,6 +56,7 @@ class StressConsistencyRepository:
         limit: int,
         event_ids: list[UUID] | None = None,
     ) -> list[TicketQuantityViolation]:
+        """Find ticket counters that violate the non-negative quantity constraints."""
         statement = (
             select(
                 TicketType.id,
@@ -92,6 +95,7 @@ class StressConsistencyRepository:
         limit: int,
         event_ids: list[UUID] | None = None,
     ) -> list[TicketQuantityViolation]:
+        """Find ticket types where allocated inventory exceeds total capacity."""
         statement = (
             select(
                 TicketType.id,
@@ -126,6 +130,11 @@ class StressConsistencyRepository:
         limit: int,
         event_ids: list[UUID] | None = None,
     ) -> list[DuplicateActiveSeatViolation]:
+        """
+        Find seats with more than one active reservation row.
+
+        This mirrors the partial unique index and makes violations explicit in a JSON report.
+        """
         active_count = func.count(ReservationSeat.id)
         statement = (
             select(
@@ -157,6 +166,7 @@ class StressConsistencyRepository:
         *,
         limit: int,
     ) -> list[OrphanReservationChildViolation]:
+        """Find quantity reservation items whose parent reservation no longer exists."""
         result = await session.execute(
             select(
                 ReservationItem.id,
@@ -184,6 +194,7 @@ class StressConsistencyRepository:
         *,
         limit: int,
     ) -> list[OrphanReservationChildViolation]:
+        """Find seat reservation rows whose parent reservation no longer exists."""
         result = await session.execute(
             select(
                 ReservationSeat.id,
@@ -213,6 +224,12 @@ class StressConsistencyRepository:
         limit: int,
         event_ids: list[UUID] | None = None,
     ) -> list[StaleActiveReservationViolation]:
+        """
+        Find expired reservations that remained active beyond the worker tolerance window.
+
+        A small delay is expected because the worker is asynchronous. A long delay means
+        expiration is stalled or a row is inconsistent enough that the worker skipped it.
+        """
         statement = (
             select(
                 Reservation.id,

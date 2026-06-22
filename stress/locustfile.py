@@ -36,6 +36,7 @@ def _response_body(response: ResponseContextManager) -> str:
 
 
 def _record_expected_conflict(operation: str) -> None:
+    """Count expected HTTP 409 responses without marking the Locust request as failed."""
     global _expected_conflicts
 
     with _metrics_lock:
@@ -54,6 +55,7 @@ def _record_server_error(
     operation: str,
     response: ResponseContextManager,
 ) -> None:
+    """Count HTTP 5xx responses as critical failures for the whole stress run."""
     global _server_errors
 
     with _metrics_lock:
@@ -76,6 +78,12 @@ def _accept_response(
     expected_statuses: set[int],
     conflict_is_expected: bool = False,
 ) -> bool:
+    """
+    Normalize Locust response handling for business conflicts and system errors.
+
+    Under contention, 409 is not a hidden failure: it means PostgreSQL correctly rejected an
+    impossible reservation. HTTP 5xx responses, timeouts, and unexpected statuses remain failures.
+    """
     if response.status_code in expected_statuses:
         response.success()
         return True
@@ -98,6 +106,7 @@ def _accept_response(
 
 
 def _parse_seed(response: ResponseContextManager) -> StressSeed | None:
+    """Validate the stress seed payload before thousands of users depend on it."""
     try:
         payload: dict[str, Any] = response.json()
         event_id = str(payload["event_id"])
@@ -120,6 +129,7 @@ def _parse_seed(response: ResponseContextManager) -> StressSeed | None:
 
 @events.test_start.add_listener
 def on_test_start(environment: Environment, **_: object) -> None:
+    """Reset process-level counters before each Locust run."""
     global _expected_conflicts, _server_errors, _stress_seed
 
     with _seed_lock:
@@ -136,6 +146,12 @@ def on_test_start(environment: Environment, **_: object) -> None:
 
 @events.test_stop.add_listener
 def on_test_stop(environment: Environment, **_: object) -> None:
+    """
+    Fail the stress process if the final database consistency audit fails.
+
+    Locust can report high throughput even when the database is corrupted. The final audit makes
+    consistency an explicit success criterion for the load test.
+    """
     host = environment.host
     logger.info(
         "Stress traffic stopped: expected_conflicts=%s server_errors=%s",
@@ -171,12 +187,16 @@ def on_test_stop(environment: Environment, **_: object) -> None:
 
 
 class AnonymousReservationUser(HttpUser):
+    """Base user that owns one visitor session and shares one stress fixture."""
+
     abstract = True
     wait_time = between(0.05, 0.25)
 
     seed: StressSeed
 
     def on_start(self) -> None:
+        # Every simulated user gets its own anonymous session cookie. This matches browser
+        # behavior and exercises the session-scoped idempotency constraint.
         self.seed = self._get_or_create_seed()
         with self.client.post(
             "/v1/sessions/anonymous",
@@ -197,6 +217,8 @@ class AnonymousReservationUser(HttpUser):
         global _stress_seed
 
         with _seed_lock:
+            # Only one greenlet should create the shared stress fixture. Without this lock,
+            # simultaneous users could create many independent events and dilute contention.
             if _stress_seed is not None:
                 return _stress_seed
 
@@ -227,10 +249,15 @@ class AnonymousReservationUser(HttpUser):
 
 
 class QuantityReservationUser(AnonymousReservationUser):
+    """Simulate users competing for finite quantity inventory."""
+
     weight = 1
 
     @task
     def reserve_quantity(self) -> None:
+        # Random quantities create more realistic contention than always reserving one ticket.
+        # Each request uses a unique idempotency key so the test exercises stock exhaustion,
+        # not mostly idempotent replays.
         payload = {
             "event_id": self.seed.event_id,
             "ticket_type_id": self.seed.ticket_type_id,
@@ -260,6 +287,8 @@ class QuantityReservationUser(AnonymousReservationUser):
         if reservation_id is None:
             return
 
+        # Some reservations are cancelled, some are confirmed, and some are left for the worker.
+        # This mixes all lifecycle paths during the same stress run.
         lifecycle_roll = random.random()
         if lifecycle_roll < 0.4:
             self._transition_reservation(reservation_id, action="cancel")
@@ -285,6 +314,8 @@ class SeatReservationUser(AnonymousReservationUser):
 
     @task
     def reserve_seat(self) -> None:
+        # One random seat per request creates heavy write contention on a small seat set.
+        # A 409 response is expected when another user already holds that seat.
         payload = {
             "event_id": self.seed.event_id,
             "seat_ids": [random.choice(self.seed.seat_ids)],

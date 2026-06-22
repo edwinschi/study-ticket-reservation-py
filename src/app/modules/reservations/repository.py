@@ -35,6 +35,8 @@ class SeatReservationRecord:
 
 
 class ReservationRepository:
+    """Persistence layer for reservation queries and concurrency-sensitive writes."""
+
     async def get_owned_reservation(
         self,
         session: AsyncSession,
@@ -44,6 +46,12 @@ class ReservationRepository:
         user_id: UUID | None,
         for_update: bool = False,
     ) -> Reservation | None:
+        """
+        Load a reservation visible to the current visitor session or authenticated user.
+
+        Lifecycle operations pass ``for_update=True`` so concurrent cancel, confirm, or expire
+        attempts serialize on the same parent row before changing inventory.
+        """
         ownership = Reservation.visitor_session_id == visitor_session_id
         if user_id is not None:
             ownership = or_(ownership, Reservation.user_id == user_id)
@@ -90,6 +98,12 @@ class ReservationRepository:
         batch_size: int,
         reservation_ids: list[UUID] | None = None,
     ) -> list[Reservation]:
+        """
+        Lock a batch of expired reservations for worker processing.
+
+        ``SKIP LOCKED`` lets multiple workers scan the same index concurrently. Rows already
+        locked by another worker are skipped instead of blocking the whole batch.
+        """
         statement = select(Reservation).where(
             Reservation.status == ReservationStatus.RESERVED,
             Reservation.expires_at < expired_before,
@@ -111,6 +125,12 @@ class ReservationRepository:
         visitor_session_id: UUID,
         idempotency_key: str,
     ) -> QuantityReservationRecord | None:
+        """
+        Return a previously created quantity reservation for an idempotent retry.
+
+        The unique ``(visitor_session_id, idempotency_key)`` constraint is the hard guarantee.
+        This read is how the API turns that database guarantee into a replayed response.
+        """
         result = await session.execute(
             select(
                 Reservation.id,
@@ -150,6 +170,7 @@ class ReservationRepository:
         visitor_session_id: UUID,
         idempotency_key: str,
     ) -> SeatReservationRecord | None:
+        """Return a previously created seat reservation for an idempotent retry."""
         result = await session.execute(
             select(
                 Reservation.id,
@@ -190,6 +211,13 @@ class ReservationRepository:
         ticket_type_id: UUID,
         quantity: int,
     ) -> bool:
+        """
+        Atomically reserve quantity inventory in PostgreSQL.
+
+        The WHERE clause is the stock check and the SET clause is the mutation. Keeping both
+        in one UPDATE means PostgreSQL re-evaluates availability while holding the row write
+        lock, which prevents overselling under concurrent requests.
+        """
         result = await session.execute(
             update(TicketType)
             .where(
@@ -217,6 +245,13 @@ class ReservationRepository:
         event_id: UUID,
         seat_ids: list[UUID],
     ) -> list[UUID]:
+        """
+        Lock event seats in deterministic order.
+
+        The caller passes sorted UUIDs, and the query orders by the same column before
+        ``FOR UPDATE``. Consistent lock order reduces deadlocks when requests contain the same
+        seats in different client-provided orders.
+        """
         result = await session.scalars(
             select(Seat.id)
             .where(
@@ -235,6 +270,13 @@ class ReservationRepository:
         seat_ids: list[UUID],
         expired_at: datetime,
     ) -> None:
+        """
+        Expire stale active holds for seats that are already locked by the caller.
+
+        This runs inside the new reservation transaction. If an old hold has passed its
+        expiration time, releasing it before insertion allows the partial unique index to accept
+        a new active hold for the same seat.
+        """
         expired_reservation_ids = list(
             await session.scalars(
                 select(ReservationSeat.reservation_id)
@@ -250,6 +292,8 @@ class ReservationRepository:
         if not reservation_ids:
             return
 
+        # Lock parent reservations in a stable order before updating children. That keeps
+        # expiration and lifecycle transitions from racing on the same reservation.
         await session.scalars(
             select(Reservation.id)
             .where(Reservation.id.in_(reservation_ids))
@@ -282,6 +326,12 @@ class ReservationRepository:
         ticket_type_id: UUID,
         quantity: int,
     ) -> bool:
+        """
+        Release reserved quantity without allowing negative inventory.
+
+        The guarded WHERE clause makes repeated or concurrent release attempts safe: only the
+        first valid transition can decrement the quantity.
+        """
         result = await session.execute(
             update(TicketType)
             .where(
@@ -303,6 +353,12 @@ class ReservationRepository:
         ticket_type_id: UUID,
         quantity: int,
     ) -> bool:
+        """
+        Move reserved quantity to sold quantity in one guarded UPDATE.
+
+        This is used by confirmation. The reserved quantity is decremented and sold quantity is
+        incremented together so another concurrent transition cannot observe a half-applied sale.
+        """
         result = await session.execute(
             update(TicketType)
             .where(

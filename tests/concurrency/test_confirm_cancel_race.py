@@ -1,3 +1,9 @@
+"""Concurrency tests for reservation lifecycle transitions.
+
+The same reservation is confirmed or cancelled many times concurrently. The parent reservation
+row lock should make those calls idempotent and prevent duplicate inventory movement.
+"""
+
 import asyncio
 from uuid import UUID, uuid4
 
@@ -47,6 +53,8 @@ async def test_100_concurrent_confirms_move_stock_once(
         quantity=4,
     )
 
+    # All requests hit the same reservation. Only the first valid transition should move
+    # reserved_quantity into sold_quantity; the rest should replay the confirmed state.
     responses = await asyncio.gather(
         *(client.post(f"/v1/reservations/{reservation_id}/confirm") for _ in range(100))
     )
@@ -82,6 +90,8 @@ async def test_100_concurrent_cancels_release_stock_once(
         quantity=4,
     )
 
+    # Only one cancel should release the reserved inventory. Repeated calls are expected to
+    # return the already-cancelled reservation without decrementing below zero.
     responses = await asyncio.gather(
         *(client.post(f"/v1/reservations/{reservation_id}/cancel") for _ in range(100))
     )
