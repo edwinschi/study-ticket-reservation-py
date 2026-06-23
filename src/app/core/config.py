@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://ticket_reservation:ticket_reservation"
         "@localhost:5432/ticket_reservation"
     )
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    database_pool_timeout_seconds: int = 30
+    database_pool_recycle_seconds: int = 1800
     redis_url: str = "redis://localhost:6379/0"
 
 

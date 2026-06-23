@@ -62,13 +62,16 @@ services:
         "0.0.0.0",
         "--port",
         "8000",
-        "--reload",
-        "--reload-dir",
-        "/app/src",
+        "--workers",
+        "${UVICORN_WORKERS:-4}",
       ]
     environment:
       APP_ENV: ${APP_ENV:-development}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ticket_reservation}:${POSTGRES_PASSWORD:-ticket_reservation}@postgres:5432/${POSTGRES_DB:-ticket_reservation}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
+      DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-30}
+      DATABASE_POOL_RECYCLE_SECONDS: ${DATABASE_POOL_RECYCLE_SECONDS:-1800}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       REDIS_URL: redis://redis:6379/0
     depends_on:
@@ -90,6 +93,10 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ticket_reservation}:${POSTGRES_PASSWORD:-ticket_reservation}@postgres:5432/${POSTGRES_DB:-ticket_reservation}
+      DATABASE_POOL_SIZE: ${WORKER_DATABASE_POOL_SIZE:-2}
+      DATABASE_MAX_OVERFLOW: ${WORKER_DATABASE_MAX_OVERFLOW:-2}
+      DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-30}
+      DATABASE_POOL_RECYCLE_SECONDS: ${DATABASE_POOL_RECYCLE_SECONDS:-1800}
       EXPIRATION_WORKER_BATCH_SIZE: ${EXPIRATION_WORKER_BATCH_SIZE:-100}
       EXPIRATION_WORKER_INTERVAL_SECONDS: ${EXPIRATION_WORKER_INTERVAL_SECONDS:-5}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -118,6 +125,22 @@ services:
         condition: service_started
     volumes:
       - .:/app
+
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: ["stress"]
+    entrypoint: ["k6"]
+    command: ["version"]
+    environment:
+      BASE_URL: ${K6_BASE_URL:-http://api:8000}
+      VUS: ${K6_VUS:-100}
+      DURATION: ${K6_DURATION:-30s}
+    depends_on:
+      api:
+        condition: service_started
+    working_dir: /scripts
+    volumes:
+      - ./stress/k6:/scripts:ro
 
 volumes:
   postgres_data:

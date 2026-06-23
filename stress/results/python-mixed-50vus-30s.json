@@ -1,0 +1,311 @@
+{
+    "setup_data": {
+        "ticket_type_id": "52570116-f258-403c-897e-ab6e59f9e639",
+        "event_id": "0cadd18a-c185-4f53-ab49-671568f3ff28",
+        "seat_ids": [
+            "63ab57d5-248f-4225-9f90-1d7776a05fc6",
+            "f8232da5-dcef-43a3-9ee8-d543cf4ff746",
+            "102cd29a-5890-4894-80e8-1dfa9d5d833a",
+            "ebb97bc1-d9dc-4e86-ad00-528a75b5ff36",
+            "e2ddaa92-35ec-438a-9cfb-4b67bbfc6cd0",
+            "502c16a9-2129-46f8-bfd5-1ad6da3efd2f",
+            "22dc0c3e-dbe4-41fc-9143-484d79f938fc",
+            "b1a58667-6676-4e00-bf87-2eef3e0d73ac",
+            "c921eb89-3c07-48db-972b-cdbe766141df",
+            "0191953c-3733-41b2-b921-2c711798b0bb",
+            "f29ded4d-444c-4fd9-afe3-4b6409bdb104",
+            "424a450d-69b4-49a8-94d6-767987d9c905",
+            "0694d5f0-97a0-4b67-a130-bfc679106b8e",
+            "4d761409-1640-43b2-8953-2bf4b6ddf952",
+            "f7119bd7-20b4-47e3-9e18-ea7bfd10a0f5",
+            "2fad001b-b79e-4b8f-a8b5-63e9c83811aa",
+            "60ebcb4f-56ed-4ccd-a670-7c6c785dc18a",
+            "9093df13-973a-48d6-a094-25efc24150c1",
+            "b009ead6-7079-4014-97ac-74b378cdf93c",
+            "626462f1-6e47-470d-92fc-6177ae94ce4b",
+            "3660cbfd-b8fc-48fc-8c93-40ffd5b9ed9e",
+            "72e735ac-af68-4d40-9104-4fc2cef50177",
+            "f2fedcfb-2d5c-486a-b91c-e9dbad358889",
+            "7f15478e-3dc8-4416-bf2e-e2da93e04e3b",
+            "f30970c8-c450-4e02-bb1a-4422593f2dfb",
+            "e7d8657b-0fa8-458b-83a0-be56fde1c21b",
+            "975e872e-f35d-485d-8ae8-9f4bd7ceec39",
+            "36c9a74c-1667-434e-a555-5c52eeeb12ba",
+            "45a758a2-11bd-484e-8e02-ca3a28ad336f",
+            "7d8a65f1-c157-4490-9d65-67e9913c4e0e",
+            "25dd8511-ab9a-4b55-8958-afb247787fa4",
+            "437babc4-e6ee-4a5b-9c65-3e35ff279365",
+            "d5d00ef8-88f5-42cb-acfc-5d28a37f6779",
+            "9ef33cfb-7c8c-4934-a171-73fe2592c8aa",
+            "ffaf28b6-e2aa-4136-8e26-eab35a993719",
+            "68e25216-37af-4044-951b-c0eb767f307c",
+            "11599c90-a867-474b-83c9-6f0f772031bd",
+            "a44e0463-c483-4793-a081-f8e18103ddfb",
+            "0f7f1d39-ef82-4529-9380-78cf390f21dc",
+            "e6a19bf2-6be1-4b31-acc0-4f3b9feb8410",
+            "1fa1af35-e8f4-4102-ab08-68acceb7b758",
+            "b14323f2-74ad-4157-b7a7-6b062e0986f9",
+            "deb5621f-7553-49cf-bfe1-dedd657caabd",
+            "ce377991-1319-44f5-8ed2-83f476d4b3e6",
+            "457dbea1-8e09-42c5-a75c-6991a416cb48",
+            "0348fcda-91e3-422d-bfe0-cab516eca921",
+            "a1fbac1a-3e1d-4d1c-8d42-d56c93e09d62",
+            "506e2ce5-fdba-40ae-814e-0ddd76e43b50",
+            "b2abad81-4481-436d-b43b-60bfc89afde3",
+            "e69c27cc-3a1f-4a32-be65-683411cd72f8",
+            "0a6971d6-fb6f-491b-a332-21c3a4320484",
+            "dadb081d-0f00-428b-8244-6cdbffdf7d2a",
+            "dd6ddf01-934b-42e2-a5d0-1c17f84df650",
+            "7eb54054-61f4-49e5-ad0d-4e26399c2357",
+            "e4cf46d8-9d1c-44ef-86d9-1c47cd4976cb",
+            "0f5a036f-c82e-4953-8ff8-f45717dd54c6",
+            "a5e96bb3-ef20-4c9d-932f-91c2fa7429fe",
+            "6e73abae-9058-48ba-b88c-766ad53995b6",
+            "e9ee513a-9afc-4737-a887-9bda67c5ca1e",
+            "5d2a758a-d41f-4228-95cf-3de86c96e770",
+            "ff7513e2-8759-4d66-ab76-86511041780b",
+            "e5ba19a2-e9e3-4a32-8ec0-92e3f8877944",
+            "ca39ed67-b90e-4ff3-9e2c-e592c3553166",
+            "7f714900-e4cd-4d09-9763-337fef65b52e",
+            "0782ec04-b521-4c0e-9efc-324796eb1602",
+            "3e6630ed-2ba9-494e-85b3-da31447fc574",
+            "5dd8c99d-016e-419f-b154-d609f7c15cd5",
+            "bf2c3279-6f31-44de-a867-2d1ab6846d42",
+            "e42754a7-87f6-4b86-884b-f22102ddfb3d",
+            "67cd3a8d-2583-4110-ba3f-bf0c7ecec639",
+            "ba52efa9-158e-4448-9a2a-ca2e91691c63",
+            "24dd0d0e-71f7-4130-be76-06f8f06b0625",
+            "fc2f5afd-d535-4237-bcc3-34232c1d3bde",
+            "b75dcc09-f267-4373-bfab-f3d65fc3fed8",
+            "fcce9c4f-cad8-40fa-82a8-a7a8fc3ffed1",
+            "e443dac5-258d-406c-8ac4-a74361ed7673",
+            "b3c53e39-ea57-4615-9d85-fdb2721a7bdb",
+            "85e0cb48-643d-43e8-965b-1fd3eb0b05c1",
+            "f3ef9f7f-d3b4-4767-bd94-e0847b0a9394",
+            "ff4e84e5-d1f1-4351-8f6e-007ed9336f4e",
+            "e1f06ab2-6d54-4524-9f8c-34cb87eacd32",
+            "764559f4-4435-4774-95b0-2441a7aa80fa",
+            "297bfcc2-076d-4cab-8f5e-7080f603355a",
+            "5db67cd0-8108-4773-832e-03d64a9fc836",
+            "f2b36a9c-5ffc-4609-908a-206374da912e",
+            "1434df2c-591e-4fea-b0d3-a301efe957c6",
+            "b7ae8c66-0038-4732-b743-556df92f0f4c",
+            "98c61a69-1082-4eec-be1b-afaa85eda043",
+            "49c6d032-f848-4250-b5b2-5a20271800fd",
+            "d642da5c-192e-4c4f-a994-8cde5f15d3d3",
+            "b6dcd2d4-9b0b-4c69-840c-4f0b4660e09e",
+            "e02dd3fb-67ed-4bac-b06b-ce72049d31e5",
+            "f0f9ad46-e350-4d8d-aad0-12175b79a99f",
+            "234b20b7-0bbb-4b29-94c9-cf3878d34dbd",
+            "5034037e-ae1b-4ffe-92b7-3a942ba79fc2",
+            "90305416-4125-4b67-8de2-333999f01f87",
+            "e43542c2-5dc3-40ef-931a-958c16b350b9",
+            "6584a64d-3de3-41cd-adb2-b6683870e688",
+            "44701dea-be35-44f6-8517-a433e34f49ad",
+            "d79023f5-5b6c-4aa6-a051-ba76fd7faa61"
+        ]
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "setup": {
+                "groups": {},
+                "checks": {
+                        "stress seed created": {
+                            "path": "::setup::stress seed created",
+                            "id": "0672411b709e202f9b23a19adc3e0783",
+                            "passes": 1,
+                            "fails": 0,
+                            "name": "stress seed created"
+                        }
+                    },
+                "name": "setup",
+                "path": "::setup",
+                "id": "5c0f8025f7e0b6654089e5b00e950f1a"
+            }
+        },
+        "checks": {
+            "anonymous session created": {
+                "path": "::anonymous session created",
+                "id": "42e01ab6a00eeabeb84fbebc8bd16a26",
+                "passes": 1679,
+                "fails": 0,
+                "name": "anonymous session created"
+            },
+            "quantity reservation returned 201 or 409": {
+                "id": "fabde9e35283e444a9ea39c1d2b400bc",
+                "passes": 1046,
+                "fails": 0,
+                "name": "quantity reservation returned 201 or 409",
+                "path": "::quantity reservation returned 201 or 409"
+            },
+            "seat reservation returned 201 or 409": {
+                "path": "::seat reservation returned 201 or 409",
+                "id": "a9c9dd93df44752b5ea7f6fd092bcdc2",
+                "passes": 633,
+                "fails": 0,
+                "name": "seat reservation returned 201 or 409"
+            },
+            "cancel returned 200": {
+                "passes": 304,
+                "fails": 0,
+                "name": "cancel returned 200",
+                "path": "::cancel returned 200",
+                "id": "37413c041885fcbfe59a8a83a5fc3f34"
+            },
+            "confirm returned 200": {
+                "name": "confirm returned 200",
+                "path": "::confirm returned 200",
+                "id": "8721eaedbf44ee8e416b8c7918c240f1",
+                "passes": 302,
+                "fails": 0
+            }
+        },
+        "name": ""
+    },
+    "metrics": {
+        "http_req_duration": {
+            "avg": 338.02627374861356,
+            "min": 22.495605,
+            "med": 283.2864435,
+            "max": 1862.779159,
+            "p(90)": 642.8973215,
+            "p(95)": 791.600593,
+            "thresholds": {
+                "p(99)<5000": false,
+                "p(95)<2000": false
+            }
+        },
+        "http_req_blocked": {
+            "med": 0.007154,
+            "max": 8.04499,
+            "p(90)": 0.012789,
+            "p(95)": 0.01798075,
+            "avg": 0.023859814422592215,
+            "min": 0.002214
+        },
+        "quantity_reservations_created": {
+            "count": 1046,
+            "rate": 34.27202923171804
+        },
+        "iterations": {
+            "count": 1679,
+            "rate": 55.012176940778765
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 3966,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "server_errors": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "seat_reservations_created": {
+            "count": 135,
+            "rate": 4.423254250747548
+        },
+        "http_reqs": {
+            "count": 3966,
+            "rate": 129.94538043307242
+        },
+        "data_sent": {
+            "count": 1022402,
+            "rate": 33498.844388687365
+        },
+        "reservations_confirmed": {
+            "count": 302,
+            "rate": 9.894983583153774
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 22.495605,
+            "med": 283.2864435,
+            "max": 1862.779159,
+            "p(90)": 642.8973215,
+            "p(95)": 791.600593,
+            "avg": 338.02627374861356
+        },
+        "http_req_sending": {
+            "avg": 0.04579210640443774,
+            "min": 0.009568,
+            "med": 0.0289795,
+            "max": 5.440425,
+            "p(90)": 0.049417,
+            "p(95)": 0.0597645
+        },
+        "http_req_waiting": {
+            "min": 22.336155,
+            "med": 283.069607,
+            "max": 1862.597608,
+            "p(90)": 642.7036835,
+            "p(95)": 791.44633875,
+            "avg": 337.85486670272286
+        },
+        "data_received": {
+            "count": 1567752,
+            "rate": 51367.15331939237
+        },
+        "iteration_duration": {
+            "max": 3400.963403,
+            "p(90)": 1461.9200168,
+            "p(95)": 1662.2257637999996,
+            "avg": 900.1823259940418,
+            "min": 166.936639,
+            "med": 816.976813
+        },
+        "seat_reservation_conflicts": {
+            "count": 498,
+            "rate": 16.316893458313178
+        },
+        "reservations_cancelled": {
+            "count": 304,
+            "rate": 9.96051327575744
+        },
+        "vus_max": {
+            "min": 50,
+            "max": 50,
+            "value": 50
+        },
+        "http_req_connecting": {
+            "max": 2.72915,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.007514556732223899,
+            "min": 0,
+            "med": 0
+        },
+        "http_req_receiving": {
+            "med": 0.1191035,
+            "max": 0.729889,
+            "p(90)": 0.187973,
+            "p(95)": 0.21547375,
+            "avg": 0.12561493948562785,
+            "min": 0.023535
+        },
+        "checks": {
+            "passes": 3965,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "vus": {
+            "min": 50,
+            "max": 50,
+            "value": 50
+        }
+    }
+}

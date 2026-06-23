@@ -32,7 +32,7 @@ Core capabilities:
 - Reservation cancel, confirm, and expiration lifecycle.
 - Background expiration worker using `FOR UPDATE SKIP LOCKED`.
 - Administrative consistency assertion endpoint.
-- Local stress testing with Locust.
+- Local stress testing with k6.
 - Strong pytest concurrency tests.
 - Ruff formatting/linting and strict mypy type checking.
 
@@ -49,7 +49,7 @@ Core capabilities:
 - pytest
 - pytest-asyncio
 - httpx
-- Locust
+- k6
 - Ruff
 - mypy
 - uv
@@ -76,7 +76,7 @@ src/app/
   workers/           # expiration worker
 alembic/             # migrations
 tests/               # integration and concurrency tests
-stress/              # Locust workload
+stress/              # k6 scripts and optional Locust workload
 ```
 
 Runtime services:
@@ -86,7 +86,8 @@ Runtime services:
 - `redis`: Redis instance with healthcheck.
 - `migrate`: one-shot Alembic migration service.
 - `worker`: reservation expiration worker.
-- `locust`: optional stress-test runner.
+- `k6`: standard stress-test runner used for project comparison.
+- `locust`: optional legacy stress-test runner.
 
 The API and worker depend on successful migrations and healthy infrastructure services.
 
@@ -178,11 +179,18 @@ Main variables:
 | `APP_ENV` | Runtime environment. Stress admin endpoints are disabled in production. | `development` |
 | `LOG_LEVEL` | Application log level. | `INFO` |
 | `API_PORT` | Host port mapped to the API container. | `8000` |
+| `UVICORN_WORKERS` | Number of Uvicorn worker processes used by the API service. | `4` |
 | `COOKIE_SECURE` | Whether session cookies require HTTPS. | `false` |
 | `VISITOR_SESSION_TTL_SECONDS` | Visitor session lifetime. | `2592000` |
 | `RESERVATION_TTL_SECONDS` | Reservation hold lifetime. | `900` |
 | `EXPIRATION_WORKER_INTERVAL_SECONDS` | Worker loop interval. | `5` |
 | `EXPIRATION_WORKER_BATCH_SIZE` | Worker batch size. | `100` |
+| `DATABASE_POOL_SIZE` | Base SQLAlchemy connection pool size per API worker process. | `5` |
+| `DATABASE_MAX_OVERFLOW` | Extra SQLAlchemy connections allowed per API worker process. | `10` |
+| `DATABASE_POOL_TIMEOUT_SECONDS` | Maximum wait for a pooled database connection. | `30` |
+| `DATABASE_POOL_RECYCLE_SECONDS` | Maximum age for pooled database connections before recycling. | `1800` |
+| `WORKER_DATABASE_POOL_SIZE` | Base SQLAlchemy connection pool size for the expiration worker. | `2` |
+| `WORKER_DATABASE_MAX_OVERFLOW` | Extra SQLAlchemy connections allowed for the expiration worker. | `2` |
 | `POSTGRES_DB` | PostgreSQL database name. | `ticket_reservation` |
 | `POSTGRES_USER` | PostgreSQL user. | `ticket_reservation` |
 | `POSTGRES_PASSWORD` | PostgreSQL password. | `ticket_reservation` |
@@ -190,7 +198,8 @@ Main variables:
 | `REDIS_URL` | Redis URL. | Set by Compose |
 
 For local development, Compose configures `DATABASE_URL` and `REDIS_URL` on the internal Docker
-network.
+network. The Compose API service runs without Uvicorn hot reload and uses multiple workers by
+default so local stress runs are closer to the Go comparison environment.
 
 ## 6. Migrations
 
@@ -250,45 +259,61 @@ Useful Makefile commands:
 | Command | Description |
 | --- | --- |
 | `make up` | Builds and starts the full Docker Compose environment. |
+| `make stress-up` | Builds and starts the environment with request logs reduced for stress tests. |
 | `make down` | Stops the Docker Compose environment without removing volumes. |
 | `make test` | Runs the pytest suite inside the API container. |
 | `make lint` | Runs Ruff lint checks. |
 | `make format` | Formats Python code with Ruff. |
 | `make typecheck` | Runs strict mypy type checking. |
 | `make migrate` | Runs Alembic migrations through the migration service. |
-| `make stress` | Runs the default headless Locust stress test. |
+| `make stress-reset` | Resets local stress-test fixtures through the admin endpoint. |
+| `make stress-seed` | Creates local stress-test fixtures through the admin endpoint. |
+| `make stress` | Runs the mixed k6 stress script. |
+| `make k6` | Alias for `make stress`. |
+| `make stress-quantity` | Runs the quantity-only k6 stress script. |
+| `make stress-seats` | Runs the seat-only k6 stress script. |
+| `make stress-locust` | Runs the previous headless Locust stress test. |
 | `make assert` | Calls the consistency assertion endpoint and fails when `ok` is not `true`. |
 
-## 8. Stress testing with Locust
+## 8. Stress testing with k6
 
 Start the application:
 
 ```bash
-docker compose up --build
+make stress-up
 ```
+
+The Compose API service runs Uvicorn without `--reload` and uses `UVICORN_WORKERS=4` by default.
+Each worker has its own SQLAlchemy pool, so total possible API database connections are roughly
+`UVICORN_WORKERS * (DATABASE_POOL_SIZE + DATABASE_MAX_OVERFLOW)`.
+
+Each k6 virtual user creates one anonymous visitor session and reuses its cookie across
+iterations, matching browser-like traffic more closely than creating a new session per request.
 
 Reset previous stress fixtures:
 
 ```bash
 curl -X POST http://localhost:8000/v1/admin/stress/reset
+make stress-reset
 ```
 
 Create a local stress fixture:
 
 ```bash
 curl -X POST http://localhost:8000/v1/admin/stress/seed
+make stress-seed
 ```
 
 Run a mixed quantity/seat stress test:
 
 ```bash
-docker compose run --rm locust \
-  -f /app/stress/locustfile.py \
-  --headless \
-  -u 1000 \
-  -r 100 \
-  --run-time 1m \
-  --host http://api:8000
+docker compose run --rm --no-deps k6 run \
+  -e BASE_URL=http://api:8000 \
+  -e VUS=100 \
+  -e DURATION=30s \
+  /scripts/mixed.js
+
+make stress
 ```
 
 Validate database consistency after the run:
@@ -301,14 +326,18 @@ make assert
 Suggested load profiles:
 
 ```bash
-docker compose run --rm locust -f /app/stress/locustfile.py --headless \
-  -u 500 -r 50 --run-time 30s --host http://api:8000
+K6_VUS=500 K6_DURATION=30s make stress
 
-docker compose run --rm locust -f /app/stress/locustfile.py --headless \
-  -u 1000 -r 100 --run-time 1m --host http://api:8000
+K6_VUS=1000 K6_DURATION=1m make stress
 
-docker compose run --rm locust -f /app/stress/locustfile.py --headless \
-  -u 5000 -r 200 --run-time 2m --host http://api:8000
+K6_VUS=5000 K6_DURATION=2m make stress
+```
+
+Focused scripts:
+
+```bash
+make stress-quantity
+make stress-seats
 ```
 
 How to interpret the result:
@@ -319,7 +348,13 @@ How to interpret the result:
 - `500`, excessive timeouts, stalled workers, or `"ok": false` from the consistency endpoint are
   real failures.
 - High `409` volume is normal after the seeded inventory becomes heavily contested.
-- The final signal should be a successful Locust exit plus `"ok": true` from the consistency audit.
+- The final signal should be a successful k6 exit plus `"ok": true` from the consistency audit.
+
+The optional Locust workload is still available for historical comparison:
+
+```bash
+make stress-locust
+```
 
 ## 9. Main endpoints
 
@@ -539,7 +574,7 @@ It checks:
 - No orphan `reservation_seats`.
 - No active reservation remains expired beyond the local tolerance window.
 
-This endpoint is intentionally useful after concurrency tests and Locust runs. It gives a simple
+This endpoint is intentionally useful after concurrency tests and k6 runs. It gives a simple
 database-level signal that the stress workload did not violate core invariants.
 
 ## 17. Errors, request IDs, and logs
