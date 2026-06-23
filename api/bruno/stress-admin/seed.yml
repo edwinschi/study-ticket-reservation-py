@@ -1,0 +1,11 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Seed Stress Fixture
+  description: Creates one event, one ticket type with 1000 units, and 100 seats for local testing.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/admin/stress/seed"
+  headers: []
+  body:
+    mode: none

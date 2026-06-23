@@ -1,0 +1,21 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Reserve Seats
+  description: Requires a visitor_session cookie. Reserves one or more seats using the current session.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/reservations/seats"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{token}}"
+  body:
+    mode: json
+    raw: |
+      {
+        "event_id": "{{eventID}}",
+        "seat_ids": ["{{seatID}}"],
+        "idempotency_key": "{{idempotencyKey}}"
+      }

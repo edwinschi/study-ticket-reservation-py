@@ -1,0 +1,19 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Create Event
+  description: Creates an event.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/events"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    mode: json
+    raw: |
+      {
+        "name": "Bruno Demo Event",
+        "starts_at": "2026-06-23T20:00:00Z",
+        "ends_at": "2026-06-23T23:00:00Z"
+      }

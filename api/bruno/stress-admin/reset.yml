@@ -1,0 +1,11 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Reset Stress Fixture
+  description: Removes local stress fixtures created by the seed endpoint.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/admin/stress/reset"
+  headers: []
+  body:
+    mode: none

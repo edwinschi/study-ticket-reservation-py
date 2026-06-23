@@ -1,0 +1,11 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Create Anonymous Session
+  description: Creates a visitor session and sets the HTTP-only visitor_session cookie.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/sessions/anonymous"
+  headers: []
+  body:
+    mode: none

@@ -1,0 +1,11 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Readiness
+  description: Checks PostgreSQL and Redis connectivity.
+request:
+  method: GET
+  url: "{{baseURL}}/ready"
+  headers: []
+  body:
+    mode: none

@@ -1,0 +1,11 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Logout
+  description: Clears the visitor session cookie without deleting existing reservations.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/auth/logout"
+  headers: []
+  body:
+    mode: none

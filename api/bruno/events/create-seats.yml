@@ -1,0 +1,28 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Create Seats
+  description: Creates seats in batch for an event.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/events/{{eventID}}/seats"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    mode: json
+    raw: |
+      {
+        "seats": [
+          {
+            "section": "A",
+            "row_name": "1",
+            "seat_number": "1"
+          },
+          {
+            "section": "A",
+            "row_name": "1",
+            "seat_number": "2"
+          }
+        ]
+      }

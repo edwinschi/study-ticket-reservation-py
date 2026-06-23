@@ -1,0 +1,14 @@
+openCollection: 1.0.0
+type: environment
+name: staging
+variables:
+  baseURL: https://staging.example.com
+  token: ""
+  eventID: ""
+  ticketTypeID: ""
+  seatID: ""
+  seatID2: ""
+  reservationID: ""
+  idempotencyKey: staging-manual-test-key
+  email: student@example.com
+  password: ""

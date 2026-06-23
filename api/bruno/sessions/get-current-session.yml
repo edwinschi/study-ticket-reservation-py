@@ -1,0 +1,13 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Get Current Session
+  description: Requires the visitor_session cookie created by Create Anonymous Session.
+request:
+  method: GET
+  url: "{{baseURL}}/v1/me/session"
+  headers:
+    - name: Authorization
+      value: "Bearer {{token}}"
+  body:
+    mode: none

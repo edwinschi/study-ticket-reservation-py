@@ -1,0 +1,18 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Register
+  description: Creates a user with a securely hashed password.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/auth/register"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    mode: json
+    raw: |
+      {
+        "email": "{{email}}",
+        "password": "{{password}}"
+      }

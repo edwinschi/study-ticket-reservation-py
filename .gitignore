@@ -12,6 +12,11 @@ htmlcov/
 coverage.xml
 dist/
 build/
+
+# Bruno local secrets and overrides
+api/bruno/.env
+api/bruno/.env.*
+!api/bruno/.env.sample
+
 .idea/
 .vscode/
-

@@ -1,0 +1,21 @@
+openCollection: 1.0.0
+type: http-request
+info:
+  name: Reserve Multiple Seats
+  description: Requires a visitor_session cookie. Useful for testing ordered seat locking.
+request:
+  method: POST
+  url: "{{baseURL}}/v1/reservations/seats"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: "Bearer {{token}}"
+  body:
+    mode: json
+    raw: |
+      {
+        "event_id": "{{eventID}}",
+        "seat_ids": ["{{seatID}}", "{{seatID2}}"],
+        "idempotency_key": "{{idempotencyKey}}"
+      }
