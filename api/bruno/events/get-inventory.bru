@@ -1,0 +1,11 @@
+meta {
+  name: Get Inventory
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseURL}}/v1/events/{{eventID}}/inventory
+  body: none
+  auth: none
+}

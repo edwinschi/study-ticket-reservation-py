@@ -1,0 +1,32 @@
+meta {
+  name: Create Seats
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseURL}}/v1/events/{{eventID}}/seats
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "seats": [
+      {
+        "section": "A",
+        "row_name": "1",
+        "seat_number": "1"
+      },
+      {
+        "section": "A",
+        "row_name": "1",
+        "seat_number": "2"
+      }
+    ]
+  }
+}

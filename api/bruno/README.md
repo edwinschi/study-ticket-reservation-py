@@ -2,6 +2,8 @@
 
 This folder contains a versioned Bruno collection for testing the Ticket Reservation Python Lab API.
 
+The collection uses Bruno's native `.bru` format for broad UI compatibility.
+
 ## How to open
 
 1. Open Bruno.
@@ -11,6 +13,9 @@ This folder contains a versioned Bruno collection for testing the Ticket Reserva
 ```text
 api/bruno/
 ```
+
+If Bruno shows empty folders, remove the collection from Bruno's sidebar, restart Bruno, and open
+this same `api/bruno/` folder again. The `bruno.json` file in this folder is the collection root.
 
 The collection is organized by API domain:
 

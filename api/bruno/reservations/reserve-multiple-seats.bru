@@ -1,0 +1,24 @@
+meta {
+  name: Reserve Multiple Seats
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/v1/reservations/seats
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "event_id": "{{eventID}}",
+    "seat_ids": ["{{seatID}}", "{{seatID2}}"],
+    "idempotency_key": "{{idempotencyKey}}"
+  }
+}

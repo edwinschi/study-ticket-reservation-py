@@ -1,0 +1,15 @@
+meta {
+  name: Cancel Reservation
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseURL}}/v1/reservations/{{reservationID}}/cancel
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

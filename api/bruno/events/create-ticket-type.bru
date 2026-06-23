@@ -1,0 +1,22 @@
+meta {
+  name: Create Ticket Type
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseURL}}/v1/events/{{eventID}}/ticket-types
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "General Admission",
+    "total_quantity": 1000
+  }
+}

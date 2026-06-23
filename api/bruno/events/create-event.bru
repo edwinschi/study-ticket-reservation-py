@@ -1,0 +1,23 @@
+meta {
+  name: Create Event
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseURL}}/v1/events
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Bruno Demo Event",
+    "starts_at": "2026-06-23T20:00:00Z",
+    "ends_at": "2026-06-23T23:00:00Z"
+  }
+}

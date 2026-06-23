@@ -1,0 +1,15 @@
+meta {
+  name: Get Reservation
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseURL}}/v1/reservations/{{reservationID}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}

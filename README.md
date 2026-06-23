@@ -137,6 +137,32 @@ docker compose down -v
 
 Use this only when you want to delete all local data.
 
+### API testing with Bruno
+
+The repository includes a versioned Bruno collection in:
+
+```text
+api/bruno/
+```
+
+Start the API with `docker compose up --build`, open Bruno, choose
+**Open Collection**, and select the `api/bruno/` folder. The local Bruno
+environment uses:
+
+```text
+baseURL=http://localhost:8000
+```
+
+Suggested manual flow:
+
+1. Run `health/Healthcheck` and `health/Readiness`.
+2. Run `sessions/Create Anonymous Session` so Bruno stores the `visitor_session` cookie.
+3. Run `stress-admin/Seed Stress Fixture`.
+4. Copy the returned `event_id`, `ticket_type_id`, and relevant `seat_ids` into the active Bruno environment.
+5. Run reservation requests and then `stress-admin/Assert Consistency`.
+
+See `api/bruno/README.md` for the full collection notes.
+
 ## 5. Environment variables
 
 The default local values are defined in `.env.example`.
@@ -221,17 +247,17 @@ make typecheck
 
 Useful Makefile commands:
 
-```bash
-make up
-make down
-make test
-make lint
-make format
-make typecheck
-make migrate
-make stress
-make assert
-```
+| Command | Description |
+| --- | --- |
+| `make up` | Builds and starts the full Docker Compose environment. |
+| `make down` | Stops the Docker Compose environment without removing volumes. |
+| `make test` | Runs the pytest suite inside the API container. |
+| `make lint` | Runs Ruff lint checks. |
+| `make format` | Formats Python code with Ruff. |
+| `make typecheck` | Runs strict mypy type checking. |
+| `make migrate` | Runs Alembic migrations through the migration service. |
+| `make stress` | Runs the default headless Locust stress test. |
+| `make assert` | Calls the consistency assertion endpoint and fails when `ok` is not `true`. |
 
 ## 8. Stress testing with Locust
 
@@ -574,4 +600,3 @@ Potential improvements:
 - More detailed load-test reports.
 - API versioning strategy.
 - A Go implementation of the same project for comparison.
-
